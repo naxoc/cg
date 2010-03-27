@@ -35,7 +35,7 @@ function {$prefix}_page_manager_tasks() {
  * Callback defined by page_manager_term_view_page_manager_tasks().
  */
 function {$prefix}_menu_alter(&\$items, \$task) {
-  if (variable_get('gcse_search_page_disabled', TRUE)) {
+  if (variable_get('{$prefix}_disabled', TRUE)) {
     return;
   }
   \$sample_path = 'path/you/want/to/alter';
@@ -50,7 +50,7 @@ function {$prefix}_menu_alter(&\$items, \$task) {
     // automatically disable this task if it cannot be enabled.
     variable_set('{$prefix}_disabled', TRUE);
     if (!empty(\$GLOBALS['enabling_{$prefix}'])) {
-      drupal_set_message(t('Page manager module is unable to enable search/gcse because some other module already has overridden with %callback.', array('%callback' => \$items[\$sample_path]['page callback'])), 'error');
+      drupal_set_message(t('Page manager module is unable to enable $sample_path because some other module already has overridden with %callback.', array('%callback' => \$items[\$sample_path]['page callback'])), 'error');
     }
   }
 }

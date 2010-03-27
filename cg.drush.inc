@@ -22,6 +22,7 @@ function cg_drush_command() {
     'arguments' => array(
       'type' => 'The type of ctools plugin. Mandatory.',
       'name' => 'The name of the ctools plugin to be created. Mandatory.',
+      'write_include' => 'Also write the include code in the module. Optional.',
     ),
     'examples' => array(
       'cg create layout my_layout' => 'Creates a layout called my_layout in the module folder.',
@@ -58,6 +59,10 @@ function cg_create_ctools_plugin() {
   $filename = cg_create_plugin_file_name($plugin_type, $plugin_name, TRUE);
 
   cg_write($filename, $file_code);
+
+  if (!empty($arguments[2])) {
+    cg_write_include_in_module($module, $plugin_type, $plugin_name);
+  }
 }
 
 function cg_create_plugin_file_name($plugin_type, $plugin_name) {
@@ -69,7 +74,7 @@ function cg_create_plugin_file_name($plugin_type, $plugin_name) {
   // The file folders for ctools plugins have the plugin type pluralized.
   $dir = 'plugins/'. $plugin_type .'s';
   if (!file_exists($dir)) {
-    drush_op('mkdir', $dir); 
+    drush_op('mkdir', $dir);
   }
   if (in_array($plugin_type, array('content_type'))) {
     // Content types go in their own folder in the plugins dir, so make that dir.
@@ -107,4 +112,108 @@ function cg_write($filename, $content) {
     drush_op('rename', $filename, $filename . '.em~');
   }
   drush_op('rename', $filename . '.new', $filename);
+}
+
+function cg_write_include_in_module($module, $plugin_type, $plugin_name) {
+
+  if (function_exists($module .'_ctools_plugin_directory')) {
+    $func = new ReflectionFunction($module .'_ctools_plugin_directory');
+    $filename = $func->getFileName();
+    $code = file($filename);
+
+    $start = $func->getStartLine();
+    $end = $func->getEndLine() - 1;
+    for ($i = $start; $i < $end; $i++) {
+      if (preg_match('/\$plugin \=\= \'([a-zA-Z_]+)\'/', $code[$i], $matches)) {
+        if ($matches[1] == $plugin_type. 's') {
+          return; // We already have support for the type in the code.
+        }
+        $code[$i] = str_replace($matches[0], $matches[0] . ' || $plugin == \''. $plugin_type .'s\'', $code[$i]);
+        file_put_contents($filename, $code);
+        break;
+      }
+    }
+  }
+  else {
+    $filename = drush_cwd() .'/'. $module .'.module';
+    $code = file($filename);
+    if ('?>' == trim(end($code))) {
+      array_pop($code);
+    }
+    $code[] = "\n/**\n";
+    $code[] = " * Implementation of hook_ctools_plugin_directory().\n";
+    $code[] = " *\n";
+    $code[] = " * Tells CTools (and thus Panels) where to look for plugin code.\n";
+    $code[] = " */\n";
+    $code[] = "function {$module}_ctools_plugin_directory(\$module, \$plugin) {\n";
+    $code[] = " if ((\$module == 'ctools' || \$module == 'panels') && (\$plugin == '{$plugin_type}s')) {\n";
+    $code[] = "   return 'plugins/' . \$plugin;\n";
+    $code[] = " }\n";
+    $code[] = "}\n";
+
+    // Write the new function to the module.
+    file_put_contents($filename, $code);
+  }
+
+  if (function_exists($module .'_ctools_plugin_api')) {
+    $func = new ReflectionFunction($module .'_ctools_plugin_api');
+    $filename = $func->getFileName();
+    $code = file($filename);
+
+    $exists = FALSE;
+    $start = $func->getStartLine();
+    $end = $func->getEndLine() - 2;
+    for ($i = $start; $i < $end; $i++) {
+      if (strpos($code[$i], '($module == \'page_manager\' && $api == \'pages_default\')')) {
+        $exists = TRUE;
+        break;
+      }
+    }
+    if (!$exists) {
+      $code[$end] .= "
+  if (\$module == 'page_manager' && \$api == 'pages_default') {
+    return array('version' => 1);
+  }\n";
+    file_put_contents($filename, $code);
+    }
+  }
+  else {
+    $filename = drush_cwd() .'/'. $module .'.module';
+    $code = file($filename);
+    if ('?' == trim(end($code))) {
+      array_pop($code);
+    }
+    $code[] = "\n/**\n";
+    $code[] = " * Implementation of ctools_plugin_api().\n";
+    $code[] = " */\n";
+    $code[] = "function {$module}_ctools_plugin_api() {\n";
+    $code[] = " \$args = func_get_args();\n";
+    $code[] = " \$module = array_shift(\$args);\n";
+    $code[] = " \$api = array_shift(\$args);\n";
+    $code[] = " if (\$module == 'page_manager' && \$api == 'pages_default') {\n";
+    $code[] = "   return array('version' => 1);\n";
+    $code[] = " }\n";
+    $code[] = "}\n";
+    // Write the new function to the module.
+    file_put_contents($filename, $code);
+  }
+}
+
+
+/**
+ * Implementation of ctools_plugin_api().
+ */
+function temp_ctools_plugin_api() {
+  $args = func_get_args();
+  $module = array_shift($args);
+  $api = array_shift($args);
+  if ($module == 'field_gatekeeper' && ($api == 'field_gatekeeper' || $api == 'field_instances')) {
+    return array('version' => 1);
+  }
+  if ($module == 'strongarm' && $api == 'strongarm') {
+    return array('version' => 1);
+  }
+  if ($module == 'page_manager' && $api == 'pages_default') {
+    return array('version' => 1);
+  }
 }
