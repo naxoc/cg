@@ -118,25 +118,12 @@ function cg_write($filename, $content) {
 
 function cg_write_include_in_module($module, $plugin_type, $plugin_name) {
 
-  if (function_exists($module .'_ctools_plugin_directory')) {
-    $func = new ReflectionFunction($module .'_ctools_plugin_directory');
-    $filename = $func->getFileName();
-    $code = file($filename);
-
-    $start = $func->getStartLine();
-    $end = $func->getEndLine() - 1;
-    for ($i = $start; $i < $end; $i++) {
-      if (preg_match('/\$plugin \=\= \'([a-zA-Z_]+)\'/', $code[$i], $matches)) {
-        if ($matches[1] == $plugin_type. 's') {
-          break; // We already have support for the type in the code.
-        }
-        $code[$i] = str_replace($matches[0], $matches[0] . ' || $plugin == \''. $plugin_type .'s\'', $code[$i]);
-        file_put_contents($filename, $code);
-        break;
-      }
-    }
+  $plugin_code = " if ((\$module == 'ctools' || \$module == 'panels') && (\$plugin == '{$plugin_type}s')) {\n";
+  if ('task' == $plugin_type) {
+    $plugin_type = " if (\$module == 'page_manager') {\n";
   }
-  else {
+
+  if (!function_exists($module .'_ctools_plugin_directory')) {
     $filename = drush_cwd() .'/'. $module .'.module';
     $code = file($filename);
     if ('?>' == trim(end($code))) {
@@ -148,13 +135,17 @@ function cg_write_include_in_module($module, $plugin_type, $plugin_name) {
     $code[] = " * Tells CTools (and thus Panels) where to look for plugin code.\n";
     $code[] = " */\n";
     $code[] = "function {$module}_ctools_plugin_directory(\$module, \$plugin) {\n";
-    $code[] = " if ((\$module == 'ctools' || \$module == 'panels') && (\$plugin == '{$plugin_type}s')) {\n";
+    $code[] = $plugin_code;
     $code[] = "   return 'plugins/' . \$plugin;\n";
     $code[] = " }\n";
     $code[] = "}\n";
 
     // Write the new function to the module.
     file_put_contents($filename, $code);
+  }
+  else {
+    drush_print(t("Make sure you add these lines of code line to the function\n!hook():\n", array('!hook' => $module .'_ctools_plugin_directory')));
+    drush_print($plugin_code ." return 'plugins/' . \$plugin;\n}");
   }
 
   if (function_exists($module .'_ctools_plugin_api')) {
