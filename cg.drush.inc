@@ -24,10 +24,10 @@ function cg_drush_command() {
       'name' => 'The name of the ctools plugin to be created. Mandatory.',
     ),
     'options' => array(
-      '-i' => 'Write implementations of hook_ctools_plugin_dierctory() and hook_ctools_plugin_api() to the module file.',
+      '-w' => 'Write implementations of hook_ctools_plugin_dierctory() and hook_ctools_plugin_api() to the module file.',
     ),
     'examples' => array(
-      'cg create layout my_layout' => 'Creates a layout called my_layout in the module folder.',
+      'cg create content_type my_type' => 'Creates a content_type called my_type in the modules folder.',
     ),
   );
   return $items;
@@ -61,8 +61,7 @@ function cg_create_ctools_plugin() {
   $filename = cg_create_plugin_file_name($plugin_type, $plugin_name, TRUE);
 
   cg_write($filename, $file_code);
-
-  if (!empty($arguments[2])) {
+  if (drush_get_option('w')) {
     cg_write_include_in_module($module, $plugin_type, $plugin_name);
   }
 }
