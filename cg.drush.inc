@@ -22,7 +22,9 @@ function cg_drush_command() {
     'arguments' => array(
       'type' => 'The type of ctools plugin. Mandatory.',
       'name' => 'The name of the ctools plugin to be created. Mandatory.',
-      'write_include' => 'Also write the include code in the module. Optional.',
+    ),
+    'options' => array(
+      '-i' => 'Write implementations of hook_ctools_plugin_dierctory() and hook_ctools_plugin_api() to the module file.',
     ),
     'examples' => array(
       'cg create layout my_layout' => 'Creates a layout called my_layout in the module folder.',
@@ -126,7 +128,7 @@ function cg_write_include_in_module($module, $plugin_type, $plugin_name) {
     for ($i = $start; $i < $end; $i++) {
       if (preg_match('/\$plugin \=\= \'([a-zA-Z_]+)\'/', $code[$i], $matches)) {
         if ($matches[1] == $plugin_type. 's') {
-          return; // We already have support for the type in the code.
+          break; // We already have support for the type in the code.
         }
         $code[$i] = str_replace($matches[0], $matches[0] . ' || $plugin == \''. $plugin_type .'s\'', $code[$i]);
         file_put_contents($filename, $code);
@@ -199,21 +201,3 @@ function cg_write_include_in_module($module, $plugin_type, $plugin_name) {
   }
 }
 
-
-/**
- * Implementation of ctools_plugin_api().
- */
-function temp_ctools_plugin_api() {
-  $args = func_get_args();
-  $module = array_shift($args);
-  $api = array_shift($args);
-  if ($module == 'field_gatekeeper' && ($api == 'field_gatekeeper' || $api == 'field_instances')) {
-    return array('version' => 1);
-  }
-  if ($module == 'strongarm' && $api == 'strongarm') {
-    return array('version' => 1);
-  }
-  if ($module == 'page_manager' && $api == 'pages_default') {
-    return array('version' => 1);
-  }
-}
