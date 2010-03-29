@@ -110,7 +110,7 @@ function cg_get_module() {
 function cg_write($filename, $content) {
   file_put_contents($filename . '.new', $content);
   if (file_exists($filename)) {
-    drush_op('rename', $filename, $filename . '.em~');
+    drush_op('rename', $filename, $filename . '.cg~');
   }
   drush_op('rename', $filename . '.new', $filename);
 }
